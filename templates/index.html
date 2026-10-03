@@ -2,91 +2,223 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stats Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
 <style>
   :root{
-    --paper:#EAE3D3; --paper-dark:#DED5C0; --ink:#1F2A22;
-    --moss:#5B7553; --rust:#A6472A; --mustard:#C9A227;
+    --bg:#EEF1F4; --surface:#FFFFFF; --ink:#17212B; --muted:#5B6877;
+    --line:#D5DBE2; --data:#2B4EFF; --flag:#E8452C; --focus:#2B4EFF;
+    --display:'Bricolage Grotesque', system-ui, sans-serif;
+    --prose:'Newsreader', Georgia, serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#10151C; --surface:#172029; --ink:#E8EDF2; --muted:#93A0AE;
+      --line:#2A3643; --data:#7C93FF; --flag:#FF7A5C; --focus:#7C93FF;
+    }
   }
   *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
   body{
-    margin:0; background:var(--paper); color:var(--ink);
-    font-family:'Source Serif 4', serif; padding:32px 18px 64px;
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:var(--display); font-size:16px; line-height:1.5;
+    padding:clamp(20px,5vw,56px) clamp(16px,4vw,32px) 80px;
   }
-  .wrap{max-width:600px;margin:0 auto;}
-  .kicker{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--moss);margin:0 0 4px;}
-  h1{font-size:26px;margin:0 0 18px;font-weight:600;}
+  .wrap{max-width:920px; margin:0 auto;}
+  :focus-visible{outline:3px solid var(--focus); outline-offset:2px;}
 
+  h1{
+    font-size:clamp(34px,6vw,60px); line-height:1.02; letter-spacing:-0.025em;
+    font-weight:800; margin:0 0 28px; max-width:14ch;
+  }
+
+  /* ---------- input ---------- */
+  .input-panel{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:20px;
+  }
+  .input-panel label{display:block; font-weight:600; margin-bottom:8px;}
   textarea{
-    width:100%; min-height:80px; padding:12px;
-    font-family:'IBM Plex Mono',monospace; font-size:14px;
-    border:1px solid var(--ink); background:#F4EFE3; color:var(--ink);
-    resize:vertical;
+    width:100%; min-height:88px; padding:12px 14px; resize:vertical;
+    font:inherit; font-size:17px; color:var(--ink); background:var(--bg);
+    border:1px solid var(--line); border-radius:8px;
   }
-  .hint{font-size:12.5px;color:#5a6155;margin:6px 0 16px;font-family:'IBM Plex Mono',monospace;}
-
+  textarea::placeholder{color:var(--muted); opacity:.8;}
+  .hint{margin:8px 0 16px; color:var(--muted); font-size:14px;}
+  .actions{display:flex; flex-wrap:wrap; gap:10px; align-items:center;}
   button{
-    font-family:'IBM Plex Mono',monospace; font-size:13px;
-    background:var(--ink); color:var(--paper);
-    border:none; padding:10px 18px; cursor:pointer;
+    font:inherit; font-weight:600; cursor:pointer; border-radius:8px;
+    padding:11px 20px; border:1px solid transparent; transition:background .15s, border-color .15s;
   }
-  button:hover{background:var(--moss);}
+  .primary{background:var(--ink); color:var(--bg);}
+  .primary:hover{background:var(--data); color:#fff;}
+  .secondary{background:transparent; color:var(--ink); border-color:var(--line);}
+  .secondary:hover{border-color:var(--ink);}
+  .shortcut{color:var(--muted); font-size:13px; margin-left:auto;}
 
-  #error{color:var(--rust); font-family:'IBM Plex Mono',monospace; font-size:13px; margin-top:12px;}
+  #message{margin:14px 0 0; font-size:15px; min-height:1.5em;}
+  #message.error{color:var(--flag); font-weight:600;}
+  #message.note{color:var(--muted);}
 
-  .results{margin-top:26px;display:none;}
-  .stat-grid{
-    display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:22px;
-  }
-  .stat-box{
-    background:#F4EFE3; border:1px solid #c9bfa6; padding:10px 12px;
-  }
-  .stat-label{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--moss);}
-  .stat-value{font-size:19px;font-weight:600;}
+  /* ---------- results ---------- */
+  .results{margin-top:36px;}
+  .results[hidden]{display:none;}
 
-  .chart{display:flex; align-items:flex-end; gap:5px; height:140px; border-bottom:2px solid var(--ink); padding-bottom:0;}
-  .bar{flex:1; background:var(--moss); position:relative; min-width:4px;}
-  .bar.mean-line::after{
-    content:''; position:absolute; left:-3px; right:-3px; top:var(--mean-pos,0);
-    border-top:2px dashed var(--rust);
+  .readout{
+    font-family:var(--prose); font-size:clamp(22px,3.4vw,31px); line-height:1.3;
+    font-weight:400; margin:0 0 6px; max-width:34em;
   }
-  .chart-caption{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5a6155;margin-top:8px;}
+  .readout strong{font-family:var(--display); font-weight:800; letter-spacing:-0.01em;}
+  .readout .flag{color:var(--flag);}
+  .readout-sub{font-family:var(--prose); font-size:19px; color:var(--muted); margin:0 0 28px; max-width:36em;}
+
+  .chart-block{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:20px 20px 16px;
+  }
+  .legend{display:flex; flex-wrap:wrap; gap:6px 20px; font-size:14px; color:var(--muted); margin:0 0 18px;}
+  .legend span{display:inline-flex; align-items:center; gap:8px;}
+  .sw-bar{width:12px; height:12px; border-radius:2px; background:var(--data);}
+  .sw-flag{width:12px; height:12px; border-radius:2px; background:var(--flag);}
+  .sw-median{width:20px; border-top:2.5px solid var(--ink);}
+  .sw-mean{width:20px; border-top:2.5px dashed var(--ink);}
+
+  .plot-wrap{position:relative; margin-left:58px;}
+  .plot{position:relative; height:260px; display:flex; gap:4px; align-items:stretch; border-left:1px solid var(--line);}
+  .col{position:relative; flex:1 1 0; max-width:72px; min-width:3px;}
+  .bar{
+    position:absolute; left:0; right:0; background:var(--data);
+    border-radius:3px 3px 0 0; transform-origin:bottom;
+  }
+  .bar.neg{border-radius:0 0 3px 3px; transform-origin:top;}
+  .bar.out{background:var(--flag);}
+  .plot.animate .bar{animation:grow .55s cubic-bezier(.2,.7,.2,1) both;}
+  @keyframes grow{from{transform:scaleY(0);}to{transform:scaleY(1);}}
+  .col:hover .bar{filter:brightness(1.12);}
+
+  .hline{position:absolute; left:0; right:0; pointer-events:none;}
+  .hline.zero{border-top:1px solid var(--line);}
+  .hline.median{border-top:2.5px solid var(--ink);}
+  .hline.mean{border-top:2.5px dashed var(--ink);}
+  .tick{
+    position:absolute; right:calc(100% + 10px); transform:translateY(-50%);
+    font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap;
+  }
+  .xnote{margin:12px 0 0 58px; font-size:13px; color:var(--muted);}
+
+  /* ---------- numbers ---------- */
+  .groups{display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:20px;}
+  .group{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:6px 20px 8px;}
+  .group h2{font-size:17px; font-weight:800; margin:16px 0 4px; letter-spacing:-0.005em;}
+  .group > p{margin:0 0 6px; font-size:14px; color:var(--muted);}
+  dl{margin:0;}
+  .row{
+    display:flex; justify-content:space-between; align-items:baseline; gap:16px;
+    padding:12px 0; border-top:1px solid var(--line);
+  }
+  .row:first-of-type{border-top:none;}
+  dt{font-weight:600;}
+  dt small{display:block; font-weight:400; font-size:13px; color:var(--muted); line-height:1.35;}
+  dd{
+    margin:0; font-size:24px; font-weight:800; letter-spacing:-0.02em; text-align:right;
+    font-variant-numeric:tabular-nums;
+  }
+  dd.small{font-size:19px;}
+
+  @media (max-width:720px){
+    .groups{grid-template-columns:1fr;}
+    .plot-wrap{margin-left:50px;} .xnote{margin-left:50px;}
+    .shortcut{display:none;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .plot.animate .bar{animation:none;}
+    button{transition:none;}
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <p class="kicker">personal stats dashboard</p>
+<main class="wrap">
   <h1>What do your numbers actually say?</h1>
 
-  <textarea id="input" placeholder="e.g. 7500, 8200, 6100, 9800, 7200, 8000, 15200, 6900, 7100, 8300"></textarea>
-  <p class="hint">comma-separated numbers &mdash; steps, hours of sleep, spending, whatever you're tracking</p>
-  <button onclick="analyze()">Analyze</button>
-  <div id="error"></div>
+  <section class="input-panel" aria-label="Enter your numbers">
+    <label for="input">Your numbers</label>
+    <textarea id="input" placeholder="7500, 8200, 6100, 9800, 7200, 8000, 15200, 6900, 7100, 8300"></textarea>
+    <p class="hint">Separate numbers with commas, spaces or new lines. Steps, hours of sleep, spending: anything you track.</p>
+    <div class="actions">
+      <button class="primary" id="analyzeBtn" type="button">Analyze</button>
+      <button class="secondary" id="sampleBtn" type="button">Try sample data</button>
+      <span class="shortcut">Ctrl + Enter to analyze</span>
+    </div>
+    <p id="message" role="status" aria-live="polite"></p>
+  </section>
 
-  <div class="results" id="results">
-    <div class="stat-grid" id="statGrid"></div>
-    <div class="chart" id="chart"></div>
-    <p class="chart-caption">bars = your values &middot; dashed line = mean</p>
-  </div>
-</div>
+  <section class="results" id="results" hidden aria-label="Results">
+    <p class="readout" id="readout"></p>
+    <p class="readout-sub" id="readoutSub"></p>
+
+    <div class="chart-block">
+      <p class="legend">
+        <span><i class="sw-bar"></i>Your values</span>
+        <span><i class="sw-flag"></i>Unusually high or low</span>
+        <span><i class="sw-median"></i>Median</span>
+        <span><i class="sw-mean"></i>Mean</span>
+      </p>
+      <div class="plot-wrap">
+        <div class="plot" id="plot" role="img" aria-label="Bar chart of your values with median and mean lines"></div>
+      </div>
+      <p class="xnote" id="xnote"></p>
+    </div>
+
+    <div class="groups">
+      <div class="group">
+        <h2>Where your numbers sit</h2>
+        <p>The typical value, in three ways.</p>
+        <dl id="centre"></dl>
+      </div>
+      <div class="group">
+        <h2>How much they vary</h2>
+        <p>How far values stray from typical.</p>
+        <dl id="spread"></dl>
+      </div>
+    </div>
+  </section>
+</main>
 
 <script>
-async function analyze() {
-  const raw = document.getElementById('input').value;
-  const errorBox = document.getElementById('error');
-  const resultsBox = document.getElementById('results');
-  errorBox.textContent = '';
+const $ = id => document.getElementById(id);
+const SAMPLE = '7500, 8200, 6100, 9800, 7200, 8000, 15200, 6900, 7100, 8300';
 
-  // Parse "1, 2, 3" into [1, 2, 3], dropping anything that isn't a number
-  const numbers = raw.split(',')
-    .map(s => parseFloat(s.trim()))
-    .filter(n => !isNaN(n));
+const fmt = n => (typeof n === 'number' && isFinite(n))
+  ? n.toLocaleString(undefined, {maximumFractionDigits: 2})
+  : '\u2014';
+
+function setMessage(text, kind) {
+  const m = $('message');
+  m.textContent = text || '';
+  m.className = kind || '';
+}
+
+// Accept commas, spaces, semicolons and new lines. Report anything that isn't a number.
+function parseInput(raw) {
+  const tokens = raw.split(/[,;\s]+/).filter(t => t.length);
+  const numbers = [], ignored = [];
+  tokens.forEach(t => {
+    const n = Number(t);
+    if (isFinite(n)) numbers.push(n); else ignored.push(t);
+  });
+  return {numbers, ignored};
+}
+
+async function analyze() {
+  setMessage('');
+  const {numbers, ignored} = parseInput($('input').value);
 
   if (numbers.length < 2) {
-    errorBox.textContent = 'Enter at least 2 valid numbers, separated by commas.';
-    resultsBox.style.display = 'none';
+    $('results').hidden = true;
+    setMessage('Enter at least 2 numbers, like: 7500, 8200, 6100.', 'error');
     return;
   }
 
@@ -99,42 +231,166 @@ async function analyze() {
     const data = await response.json();
 
     if (!response.ok) {
-      errorBox.textContent = data.error || 'Something went wrong.';
-      resultsBox.style.display = 'none';
+      $('results').hidden = true;
+      setMessage(data.error || 'The server could not analyze these numbers.', 'error');
       return;
     }
 
     renderResults(data);
+    if (ignored.length) {
+      const shown = ignored.slice(0, 3).map(t => '"' + t + '"').join(', ');
+      setMessage('Skipped ' + ignored.length + ' entr' + (ignored.length === 1 ? 'y' : 'ies') +
+        ' that ' + (ignored.length === 1 ? "isn't a number" : "aren't numbers") + ': ' + shown +
+        (ignored.length > 3 ? ', ...' : '') + '.', 'note');
+    }
   } catch (err) {
-    errorBox.textContent = 'Could not reach the server. Is app.py running?';
+    $('results').hidden = true;
+    setMessage("Can't reach the server. Start it with python app.py, then try again.", 'error');
   }
 }
 
-function renderResults(data) {
-  const grid = document.getElementById('statGrid');
-  grid.innerHTML = '';
-  const stats = [
-    ['Mean', data.mean], ['Median', data.median],
-    ['Mode', Array.isArray(data.mode) ? data.mode.join(', ') : (data.mode ?? 'none')],
-    ['Std Dev', data.std_dev], ['Range', data.range],
-    ['Min / Max', data.min + ' / ' + data.max]
-    ['CV', data.cv + '%']
-  ];
-  stats.forEach(([label, value]) => {
-    grid.innerHTML += `<div class="stat-box"><div class="stat-label">${label}</div><div class="stat-value">${value}</div></div>`;
-  });
-
-  const chart = document.getElementById('chart');
-  chart.innerHTML = '';
-  const maxVal = Math.max(...data.numbers);
-  const meanPct = (data.mean / maxVal) * 100;
-  data.numbers.forEach(n => {
-    const heightPct = (n / maxVal) * 100;
-    chart.innerHTML += `<div class="bar mean-line" style="height:${heightPct}%; --mean-pos:${100 - meanPct}%"></div>`;
-  });
-
-  document.getElementById('results').style.display = 'block';
+// Quartile by linear interpolation, used to find unusual values (1.5 x IQR rule)
+function quantile(sorted, q) {
+  const pos = (sorted.length - 1) * q, lo = Math.floor(pos), hi = Math.ceil(pos);
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
 }
+function findOutliers(nums) {
+  if (nums.length < 4) return {low: -Infinity, high: Infinity};
+  const s = [...nums].sort((a, b) => a - b);
+  const q1 = quantile(s, .25), q3 = quantile(s, .75), iqr = q3 - q1;
+  return {low: q1 - 1.5 * iqr, high: q3 + 1.5 * iqr};
+}
+
+function renderResults(data) {
+  const nums = data.numbers;
+  const fence = findOutliers(nums);
+  const isOut = n => n < fence.low || n > fence.high;
+  const outliers = nums.filter(isOut);
+
+  renderReadout(data, outliers);
+  renderChart(data, isOut);
+  renderStats(data);
+  $('results').hidden = false;
+}
+
+function renderReadout(data, outliers) {
+  const readout = $('readout'), sub = $('readoutSub');
+  const median = fmt(data.median), mean = fmt(data.mean);
+
+  if (outliers.length) {
+    const list = [...new Set(outliers)].map(fmt).join(', ');
+    const dir = data.mean > data.median ? 'up' : 'down';
+    readout.innerHTML = 'A typical value is <strong>' + median + '</strong>, but ' +
+      (outliers.length === 1 ? 'one value stands' : outliers.length + ' values stand') +
+      ' apart: <strong class="flag">' + list + '</strong>.';
+    sub.textContent = 'That pulls the mean ' + dir + ' to ' + mean +
+      ', so the median is the better guide to your usual day.';
+  } else {
+    readout.innerHTML = 'A typical value is <strong>' + median + '</strong>, and nothing stands far apart from it.';
+    sub.textContent = 'The mean is ' + mean + ', close to the median, so your values are fairly balanced.';
+  }
+
+  const cv = data.cv;
+  if (typeof cv === 'number') {
+    const word = cv < 10 ? 'very consistent' : cv < 25 ? 'moderately varied' : 'widely varied';
+    sub.textContent += ' Overall your numbers are ' + word + '.';
+  }
+}
+
+function renderChart(data, isOut) {
+  const nums = data.numbers;
+  const plot = $('plot');
+  plot.innerHTML = '';
+  plot.classList.remove('animate');
+
+  const lo = Math.min(0, ...nums), hi = Math.max(0, ...nums);
+  const span = (hi - lo) || 1;
+  const pos = v => ((v - lo) / span) * 100;   // % from the bottom of the plot
+
+  // axis labels and zero line
+  addTick(plot, hi, pos(hi));
+  if (lo < 0) addTick(plot, lo, pos(lo));
+  addTick(plot, 0, pos(0));
+  const zero = document.createElement('div');
+  zero.className = 'hline zero'; zero.style.bottom = pos(0) + '%';
+  plot.appendChild(zero);
+
+  nums.forEach((n, i) => {
+    const col = document.createElement('div');
+    col.className = 'col';
+    col.title = 'Value ' + (i + 1) + ': ' + fmt(n);
+    const bar = document.createElement('div');
+    bar.className = 'bar' + (n < 0 ? ' neg' : '') + (isOut(n) ? ' out' : '');
+    bar.style.height = (Math.abs(n) / span * 100) + '%';
+    bar.style.bottom = pos(Math.min(n, 0)) + '%';
+    col.appendChild(bar);
+    plot.appendChild(col);
+  });
+
+  addLine(plot, 'median', data.median, pos(data.median));
+  addLine(plot, 'mean', data.mean, pos(data.mean));
+
+  $('xnote').textContent = nums.length + ' values, in the order you entered them.';
+  void plot.offsetWidth;            // restart the one-time grow animation
+  plot.classList.add('animate');
+}
+
+function addTick(plot, value, bottomPct) {
+  const t = document.createElement('span');
+  t.className = 'tick'; t.textContent = fmt(value); t.style.bottom = bottomPct + '%';
+  plot.appendChild(t);
+}
+function addLine(plot, kind, value, bottomPct) {
+  const l = document.createElement('div');
+  l.className = 'hline ' + kind; l.style.bottom = bottomPct + '%';
+  l.title = (kind === 'median' ? 'Median: ' : 'Mean: ') + fmt(value);
+  plot.appendChild(l);
+}
+
+function renderStats(data) {
+  const mode = Array.isArray(data.mode)
+    ? (data.mode.length ? data.mode.map(fmt).join(', ') : 'No repeats')
+    : (data.mode == null ? 'No repeats' : fmt(data.mode));
+
+  const centre = [
+    ['Mean', 'Total divided by how many values', fmt(data.mean)],
+    ['Median', 'The middle value once sorted', fmt(data.median)],
+    ['Mode', 'The value that appears most', mode, mode.length > 8]
+  ];
+  const spread = [
+    ['Standard deviation', 'Typical distance from the mean', fmt(data.std_dev)],
+    ['Range', 'Highest minus lowest', fmt(data.range)],
+    ['Lowest and highest', 'The two extremes', fmt(data.min) + ' to ' + fmt(data.max), true],
+    ['Variation', 'Spread as a share of the mean',
+      typeof data.cv === 'number' ? fmt(data.cv) + '%' : '\u2014']
+  ];
+  fillList($('centre'), centre);
+  fillList($('spread'), spread);
+}
+
+function fillList(dl, rows) {
+  dl.innerHTML = '';
+  rows.forEach(([label, desc, value, small]) => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    const dt = document.createElement('dt');
+    dt.textContent = label;
+    const s = document.createElement('small');
+    s.textContent = desc;
+    dt.appendChild(s);
+    const dd = document.createElement('dd');
+    if (small) dd.className = 'small';
+    dd.textContent = value;
+    row.append(dt, dd);
+    dl.appendChild(row);
+  });
+}
+
+$('analyzeBtn').addEventListener('click', analyze);
+$('sampleBtn').addEventListener('click', () => { $('input').value = SAMPLE; analyze(); });
+$('input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); analyze(); }
+});
 </script>
 </body>
 </html>
